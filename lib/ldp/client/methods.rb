@@ -21,11 +21,13 @@ module Ldp::Client::Methods
       yield req if block_given?
     end
 
-    content_type = resp['content-type'].split(';').map(&:strip)
-    if content_type[0] == "message/external-body"
-      url_header = content_type[2]
-      url = url_header[/\"(.*?)\"/, 1]
-      resp = head url
+    if resp['content-type']
+      content_type = resp['content-type'].split(';').map(&:strip)
+      if content_type.size == 3 && content_type[0] == "message/external-body"
+        url_header = content_type[2]
+        url = url_header[/\"(.*?)\"/, 1]
+        resp = head url
+      end
     end
 
     check_for_errors(resp)
@@ -34,7 +36,9 @@ module Ldp::Client::Methods
   # Get a LDP Resource by URI
   def get url, options = {}
     logger.debug "LDP: GET [#{url}]"
- 
+     
+    options[:limit] = 3 unless options.has_key?(:limit)    
+
     resp = http.get do |req|
       req.url munge_to_relative_url(url)
       prefer_headers = ::Ldp::PreferHeaders.new
@@ -53,8 +57,11 @@ module Ldp::Client::Methods
       yield req if block_given?
     end
 
-    if redirect_codes.include?(resp.status)
-      resp = get(resp['location'])
+    if redirect_codes.include?(resp.status) 
+      if resp['location']
+        options[:limit] = options[:limit] - 1
+        resp = get(resp['location'], options) if options[:limit] > 0
+      end
     end
 
     if Ldp::Response.resource? resp
@@ -132,6 +139,8 @@ module Ldp::Client::Methods
             Ldp::Gone.new(resp.body)
           when 412
             Ldp::EtagMismatch.new(resp.body)
+          when 307
+            Ldp::TooManyRedirects.new(resp['location'])
           else
             Ldp::HttpError.new("STATUS: #{resp.status} #{resp.body[0, 1000]}...")
           end

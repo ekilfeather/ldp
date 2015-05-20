@@ -22,6 +22,7 @@ module Ldp
   class NotFound < HttpError; end # 404
   class Gone < HttpError; end # 410
   class EtagMismatch < HttpError; end # 412
+  class TooManyRedirects < HttpError; end
 
   class UnexpectedContentType < RuntimeError; end
 
