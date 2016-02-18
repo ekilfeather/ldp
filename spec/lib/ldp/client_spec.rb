@@ -37,7 +37,12 @@ describe "Ldp::Client" do
       stub.put("/forbidden_resource") { [403, {}, ''] }
       stub.put("/conflict_resource") { [409, {}, ''] }
       stub.get("/deleted_resource") { [410, {}, 'Gone'] }
+      stub.get('/a_redirected_resource') { [307, {'Location' => '/a_resource'}, ''] }
+      stub.get('/redirect1') { [307, {'Location' => '/redirect2'}, ''] }
+      stub.get('/redirect2') { [307, {'Location' => '/redirect3'}, ''] }
+      stub.get('/redirect3') { [307, {'Location' => '/a_resource'}, ''] }
     end
+
   end
 
   let(:mock_conn) do
@@ -113,6 +118,19 @@ describe "Ldp::Client" do
     context "with an absolute uri" do
       it "should work" do
         subject.get "http://test:8080/abc"
+      end
+    end
+
+    context "with a redirection" do
+      it "should follow redirection for a GET request" do
+        resp = subject.get "a_redirected_resource"
+        expect(resp).to be_a_kind_of(Ldp::Response)
+        expect(resp.body).to eq(simple_graph)
+        expect(resp.resource?).to be true
+      end
+
+      it "should limit the number of redirects followed" do
+        expect { subject.get "redirect1" }.to raise_error Ldp::TooManyRedirects
       end
     end
   end
