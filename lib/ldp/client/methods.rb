@@ -22,24 +22,25 @@ module Ldp::Client::Methods
         yield req if block_given?
       end
 
-    if resp['content-type']
-      content_type = resp['content-type'].split(';').map(&:strip)
-      if content_type.size == 3 && content_type[0] == "message/external-body"
-        url_header = content_type[2]
-        url = url_header[/\"(.*?)\"/, 1]
-        resp = head url
+      if resp['content-type']
+        content_type = resp['content-type'].split(';').map(&:strip)
+        if content_type.size == 3 && content_type[0] == "message/external-body"
+          url_header = content_type[2]
+          url = url_header[/\"(.*?)\"/, 1]
+          resp = head url
+        end
       end
-    end
 
-    check_for_errors(resp)
+      check_for_errors(resp)
+    end
   end
 
   # Get a LDP Resource by URI
   def get url, options = {}
     ActiveSupport::Notifications.instrument("http.ldp",
                  url: url, name: "GET", ldp_client: object_id) do
-      
-      options[:limit] = 3 unless options.has_key?(:limit)    
+
+      options[:limit] = 3 unless options.has_key?(:limit)
 
       resp = http.get do |req|
         req.url munge_to_relative_url(url)
@@ -65,7 +66,7 @@ module Ldp::Client::Methods
         resp
       end
 
-      if redirect_codes.include?(resp.status) 
+      if redirect_codes.include?(resp.status)
         if resp['location']
 	  options[:limit] = options[:limit] - 1
           resp = get(resp['location'], options) if options[:limit] > 0
