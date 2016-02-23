@@ -25,9 +25,13 @@ module Ldp::Client::Methods
       if resp['content-type']
         content_type = resp['content-type'].split(';').map(&:strip)
         if content_type.size == 3 && content_type[0] == "message/external-body"
+          original_resp = resp
           url_header = content_type[2]
           url = url_header[/\"(.*?)\"/, 1]
           resp = head url
+          resp.env.url = original_resp.env.url
+          resp.headers["link"] = original_resp.headers["link"]
+
         end
       end
 
