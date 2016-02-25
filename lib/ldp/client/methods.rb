@@ -31,7 +31,7 @@ module Ldp::Client::Methods
           resp = head url
           resp.env.url = original_resp.env.url
           resp.headers["link"] = original_resp.headers["link"]
-
+          resp.headers["content-type"] = content_type
         end
       end
 
