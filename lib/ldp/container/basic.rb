@@ -5,19 +5,10 @@ module Ldp
       contains.each { |k, x| yield x }
     end
 
-    def contains
-      @contains ||= Hash[get.graph.query(predicate: Ldp.contains).map do |x| 
-        [x.object, Ldp::Resource::RdfSource.new(client, x.object, contained_graph(x.object))]
-      end]
-    end
-    
-    private
-    def contained_graph subject
-      g = RDF::Graph.new
-      get.graph.query(subject: subject) do |stmt|
-        g << stmt
-      end
-      g
+    protected
+
+    def interaction_model
+      RDF::Vocab::LDP.BasicContainer
     end
   end
 end

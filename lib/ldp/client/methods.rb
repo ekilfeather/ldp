@@ -36,6 +36,8 @@ module Ldp::Client::Methods
       end
 
       check_for_errors(resp)
+
+      Ldp::Response.new(resp)
     end
   end
 
@@ -64,6 +66,7 @@ module Ldp::Client::Methods
         yield req if block_given?
       end
 
+
       if Ldp::Response.resource? resp
         Ldp::Response.wrap self, resp
       else
@@ -77,7 +80,11 @@ module Ldp::Client::Methods
         end
       end
 
+
+
       check_for_errors(resp)
+
+      Ldp::Response.new(resp)
     end
   end
 

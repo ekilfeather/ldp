@@ -6,16 +6,8 @@ describe "Ldp::Client" do
     graph.dump(:ttl)
   end
 
-
-  let(:paginatedGraph) do
-    graph = RDF::Graph.new << [RDF::URI.new(""), RDF::DC.title, "Hello, world!"]
-    graph << [RDF::URI.new("?firstPage"), RDF.type, Ldp.page]
-    graph << [RDF::URI.new("?firstPage"), Ldp.page_of, RDF::URI.new("")]
-    graph.dump(:ttl)
-  end
-
   let(:simple_container_graph) do
-    graph = RDF::Graph.new << [RDF::URI.new(""), RDF.type, Ldp.container]
+    graph = RDF::Graph.new << [RDF::URI.new(""), RDF.type, RDF::Vocab::LDP.Container]
     graph.dump(:ttl)
   end
 
@@ -68,6 +60,23 @@ describe "Ldp::Client" do
       client = Ldp::Client.new "http://example.com"
       expect(client.http.host).to eq("example.com")
     end
+
+    it 'accepts a connection and client options' do
+      conn = Faraday.new "http://example.com"
+      client = Ldp::Client.new conn, omit_ldpr_interaction_model: true
+      expect(client.http).to eq(conn)
+      expect(client.options[:omit_ldpr_interaction_model]).to eq true
+    end
+
+    it 'raises an ArgumentError with bad arguments' do
+      expect { Ldp::Client.new(nil, nil, nil) }.to raise_error ArgumentError
+    end
+  end
+
+  describe '#logger' do
+    it 'inherits the upstream logger' do
+      expect(subject.logger).to eq Ldp.logger
+    end
   end
 
   describe "get" do
@@ -99,12 +108,12 @@ describe "Ldp::Client" do
       end
       it "should set the include parameter" do
         subject.get "a_resource", include: "membership" do |req|
-          expect(req.headers["Prefer"]).to match "include=\"#{Ldp.prefer_membership}\""
+          expect(req.headers["Prefer"]).to match "include=\"#{RDF::Vocab::LDP.PreferMembership}\""
         end
       end
       it "should set the omit parameter" do
         subject.get "a_resource", omit: "containment" do |req|
-          expect(req.headers["Prefer"]).to match "omit=\"#{Ldp.prefer_containment}\""
+          expect(req.headers["Prefer"]).to match "omit=\"#{RDF::Vocab::LDP.PreferContainment}\""
         end
       end
     end

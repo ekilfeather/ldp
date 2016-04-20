@@ -4,15 +4,25 @@ module Ldp
     require 'ldp/container/direct'
     require 'ldp/container/indirect'
 
-    def self.new_from_response client, subject, data
+    def self.for(client, subject, data)
       case
-      when data.types.include?(Ldp.indirect_container)
+      when data.types.include?(RDF::Vocab::LDP.IndirectContainer)
         Ldp::Container::Indirect.new client, subject, data
-      when data.types.include?(Ldp.direct_container)
+      when data.types.include?(RDF::Vocab::LDP.DirectContainer)
         Ldp::Container::Direct.new client, subject, data
       else
         Ldp::Container::Basic.new client, subject, data
       end
+    end
+
+    class << self
+      alias new_from_response for
+    end
+
+    def contains
+      @contains ||= Hash[graph.query(predicate: RDF::Vocab::LDP.contains).map do |x|
+        [x.object, Ldp::Resource::RdfSource.new(client, x.object, contained_graph(x.object))]
+      end]
     end
 
     ##
@@ -32,7 +42,7 @@ module Ldp
         graph_or_content = args.first
       else
         slug = args.first
-        graph_or_content = RDF::Graph.new
+        graph_or_content = build_empty_graph
       end
 
       resp = client.post subject, (graph_or_content.is_a?(RDF::Enumerable) ? graph_or_content.dump(:ttl) : graph_or_content) do |req|
@@ -40,6 +50,22 @@ module Ldp
       end
 
       client.find_or_initialize resp.headers['Location']
+    end
+
+    private
+
+    def contained_graph subject
+      g = RDF::Graph.new
+      response_graph.query(subject: subject) do |stmt|
+        g << stmt
+      end
+      g
+    end
+
+    def rdf_source_for(object)
+      g = contained_graph(object)
+
+      Ldp::Resource::RdfSource.new(client, object, (g unless g.empty?))
     end
   end
 end
