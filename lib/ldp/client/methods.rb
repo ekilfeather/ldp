@@ -13,28 +13,43 @@ module Ldp::Client::Methods
     end
   end
 
-  def head url
+  def head url, options = {}
     ActiveSupport::Notifications.instrument("http.ldp",
                  url: url, name: "HEAD", ldp_client: object_id) do
+
+      options[:limit] = 3 unless options.has_key?(:limit)
+
       resp = http.head do |req|
         req.url munge_to_relative_url(url)
 
         yield req if block_given?
       end
 
-      if resp['content-type']
-        content_type = resp['content-type'].split(';').map(&:strip)
-        if content_type.size == 3 && content_type[0] == "message/external-body"
-          original_resp = resp
-          url_header = content_type[2]
-          url = url_header[/\"(.*?)\"/, 1]
-          resp = head url
-          resp.env.url = original_resp.env.url
-          resp.headers["link"] = original_resp.headers["link"]
-          resp.headers["content-type"] = content_type
+      if resp.headers["link"] =~ /<http:\/\/www\.w3\.org\/ns\/ldp#NonRDFSource>\;rel="type"/
+        # NonRDF need to check for a redirect
+        # fedora doesn't return 302 for head requests
+        # otherwise we could use:
+        # if redirect_codes.include?(resp.status)
+        # check the content-type instead.
+        if resp['content-type']
+          content_type = resp['content-type'].split(';').map(&:strip)
+
+          if content_type.size == 3 && content_type[0] == "message/external-body"
+            # since we don't get 302 redirects,
+            # we can't use: resp['location']
+            # instead pull the location of the actual content from
+            # the mime_type.
+            url_header = content_type[2]
+            new_url = url_header[/\"(.*?)\"/, 1]
+            #original_resp = resp
+            options[:limit] = options[:limit] - 1
+
+            redirected_response = head(new_url, options) if options[:limit] > 0
+
+            resp.headers['content-length'] = redirected_response.response.headers['content-length']
+          end
         end
       end
-
       check_for_errors(resp)
 
       Ldp::Response.new(resp)
@@ -66,21 +81,12 @@ module Ldp::Client::Methods
         yield req if block_given?
       end
 
-
-      if Ldp::Response.resource? resp
-        Ldp::Response.wrap self, resp
-      else
-        resp
-      end
-
       if redirect_codes.include?(resp.status)
         if resp['location']
-	  options[:limit] = options[:limit] - 1
-          resp = get(resp['location'], options) if options[:limit] > 0
+          options[:limit] = options[:limit] - 1
+          return get(resp['location'], options) if options[:limit] > 0
         end
       end
-
-
 
       check_for_errors(resp)
 

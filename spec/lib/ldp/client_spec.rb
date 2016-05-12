@@ -29,9 +29,9 @@ describe "Ldp::Client" do
       stub.put("/forbidden_resource") { [403, {}, ''] }
       stub.put("/conflict_resource") { [409, {}, ''] }
       stub.get("/deleted_resource") { [410, {}, 'Gone'] }
-      stub.get('/a_redirected_resource') { [307, {'Location' => '/a_resource'}, ''] }
-      stub.get('/redirect1') { [307, {'Location' => '/redirect2'}, ''] }
-      stub.get('/redirect2') { [307, {'Location' => '/redirect3'}, ''] }
+      stub.get('/a_redirected_resource') { [302, {'Location' => '/a_resource', "Link" => "<http://www.w3.org/ns/ldp#Resource>;rel=\"type\"" }, ''] }
+      stub.get('/redirect1') { [302, {'Location' => '/redirect2'}, ''] }
+      stub.get('/redirect2') { [302, {'Location' => '/redirect3'}, ''] }
       stub.get('/redirect3') { [307, {'Location' => '/a_resource'}, ''] }
     end
 
@@ -140,6 +140,19 @@ describe "Ldp::Client" do
 
       it "should limit the number of redirects followed" do
         expect { subject.get "redirect1" }.to raise_error Ldp::TooManyRedirects
+      end
+    end
+  end
+
+  describe "head" do
+    it "should get HEAD content from the HTTP endpoint" do
+      resp = subject.head "a_resource" do
+      expect(resp).to be_a_kind_of(Ldp::Response)
+      expect(resp.body).to eq(simple_graph)
+      expect(resp.resource?).to be true
+      expect(response.env.url).to eq("/a_redirected_resource")
+      expect(resp.headers["link"]).to eq("original_link")
+      expect(resp.headers["content-type"]).to eq("resource_content_type")
       end
     end
   end
