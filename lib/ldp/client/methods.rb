@@ -61,7 +61,8 @@ module Ldp::Client::Methods
     ActiveSupport::Notifications.instrument("http.ldp",
                  url: url, name: "GET", ldp_client: object_id) do
 
-      options[:limit] = 3 unless options.has_key?(:limit)
+      options[:limit] = 5 unless options.has_key?(:limit)
+      options[:connection_timeout] = 60 unless options.has_key?(:connection_timeout)
 
       resp = http.get do |req|
         req.url munge_to_relative_url(url)
