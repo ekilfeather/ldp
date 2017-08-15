@@ -21,7 +21,6 @@ module Ldp
       end
 
       @options = options
-      @options.connection_timeout = 60
 
       initialize_http_client(http_client || options)
     end
